@@ -6,7 +6,11 @@ export default function ScriptRegisterSW() {
   useEffect(() => {
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', function() {
-        navigator.serviceWorker.register('/sw.js').then(
+        // Use basePath from Next.js config (matches next.config.ts)
+        const basePath = '/timeapp';
+        const swPath = `${basePath}/sw.js`;
+        
+        navigator.serviceWorker.register(swPath).then(
           function(registration) {
             console.log('Service Worker registration successful with scope: ', registration.scope);
           },

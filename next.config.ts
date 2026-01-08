@@ -5,9 +5,10 @@ const nextConfig: NextConfig = {
   output: "export",
   // React strict mode is on by default
   reactStrictMode: true,
-  // If your repo is not at root (e.g., username/timeboard), uncomment and set:
-  // basePath: '/timeboard',
-  // trailingSlash: true, // Helps with GitHub Pages routing
+  // Base path for GitHub Pages (change to match your repo name)
+  basePath: '/timeapp',
+  // Trailing slash helps with GitHub Pages routing
+  trailingSlash: true,
 };
 
 export default nextConfig;
