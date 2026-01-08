@@ -74,7 +74,7 @@ export default function TotalsList({ colors, emojis, names }: TotalsListProps) {
               ))}
             </Pie>
             <Tooltip 
-              formatter={(value: number) => formatDuration(value)}
+              formatter={(value: number | undefined) => value ? formatDuration(value) : ''}
             />
           </PieChart>
         </ResponsiveContainer>
