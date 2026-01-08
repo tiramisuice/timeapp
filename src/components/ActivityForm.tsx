@@ -18,15 +18,18 @@ const COLORS = [
 
 const SUGGESTED_EMOJIS = ['👨‍💻', '📈', '🏋️', '🚗', '❤️', '😌', '🎮', '📱', '🍽', '🧹', '📚', '🏃', '💤', '🎓', '🎨', '🎵'];
 
+const CATEGORIES = ['Output', 'Health', 'Social', 'Life', 'Passive', 'Other'];
+
 export default function ActivityForm({ initialData, onSubmit, onCancel, onDelete }: ActivityFormProps) {
   const [name, setName] = useState(initialData?.name || '');
   const [emoji, setEmoji] = useState(initialData?.emoji || '⏱️');
   const [color, setColor] = useState(initialData?.color || 'bg-blue-500');
+  const [category, setCategory] = useState(initialData?.category || 'Other');
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!name.trim()) return;
-    onSubmit({ name, emoji, color });
+    onSubmit({ name, emoji, color, category });
   };
 
   return (
@@ -71,6 +74,20 @@ export default function ActivityForm({ initialData, onSubmit, onCancel, onDelete
               placeholder="Activity Name"
               autoFocus
             />
+          </div>
+
+          {/* Category */}
+          <div>
+            <label className="block text-xs font-medium text-gray-500 mb-1">Category</label>
+            <select
+              value={category}
+              onChange={e => setCategory(e.target.value)}
+              className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none bg-white"
+            >
+              {CATEGORIES.map(cat => (
+                <option key={cat} value={cat}>{cat}</option>
+              ))}
+            </select>
           </div>
 
           {/* Color */}

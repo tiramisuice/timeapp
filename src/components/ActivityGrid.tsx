@@ -22,6 +22,7 @@ import { useTimeTrackerStore } from '../store/timeTrackerStore';
 import ActivityButton from './ActivityButton';
 import { SortableActivityButton } from './SortableActivityButton';
 import ActivityForm from './ActivityForm';
+import SettingsModal from './SettingsModal';
 import { Activity } from '../storage/db';
 
 export default function ActivityGrid() {
@@ -29,7 +30,6 @@ export default function ActivityGrid() {
     activities, 
     activeSession, 
     selectActivity, 
-    deleteLastSession, 
     initialize, 
     isLoading,
     isEditMode,
@@ -42,6 +42,7 @@ export default function ActivityGrid() {
 
   const [editingActivity, setEditingActivity] = useState<Activity | null>(null);
   const [isAdding, setIsAdding] = useState(false);
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
 
   // DnD Sensors
   const sensors = useSensors(
@@ -88,12 +89,22 @@ export default function ActivityGrid() {
         <h2 className="text-lg font-semibold text-gray-700">
           {isEditMode ? 'Edit Layout' : 'Activities'}
         </h2>
-        <button 
-          onClick={toggleEditMode}
-          className={`text-sm font-medium px-3 py-1 rounded-full transition-colors ${isEditMode ? 'bg-blue-100 text-blue-700' : 'text-gray-500 hover:bg-gray-100'}`}
-        >
-          {isEditMode ? 'Done' : 'Edit'}
-        </button>
+        <div className="flex gap-2">
+          {!isEditMode && (
+            <button
+              onClick={() => setIsSettingsOpen(true)}
+              className="text-gray-400 hover:text-gray-600 p-1"
+            >
+              ⚙️
+            </button>
+          )}
+          <button 
+            onClick={toggleEditMode}
+            className={`text-sm font-medium px-3 py-1 rounded-full transition-colors ${isEditMode ? 'bg-blue-100 text-blue-700' : 'text-gray-500 hover:bg-gray-100'}`}
+          >
+            {isEditMode ? 'Done' : 'Edit'}
+          </button>
+        </div>
       </div>
 
       <DndContext 
@@ -101,7 +112,7 @@ export default function ActivityGrid() {
         collisionDetection={closestCenter} 
         onDragEnd={handleDragEnd}
       >
-        <div className="grid grid-cols-2 gap-3 sm:gap-4 flex-1 overflow-y-auto p-1 pb-4">
+        <div className="grid grid-cols-2 gap-3 sm:gap-4 flex-1 overflow-y-auto p-1 pb-24 scrollbar-hide">
           <SortableContext 
             items={activities.map(a => a.id)} 
             strategy={rectSortingStrategy}
@@ -130,21 +141,11 @@ export default function ActivityGrid() {
         </div>
       </DndContext>
 
-      {!isEditMode && (
-        <div className="absolute bottom-4 right-4 z-10">
-          <button 
-            onClick={() => {
-              if (confirm('Delete last session?')) {
-                deleteLastSession();
-              }
-            }}
-            className="w-12 h-12 rounded-full bg-white shadow-lg border border-gray-200 text-gray-500 hover:text-red-500 hover:bg-red-50 transition-all flex items-center justify-center active:scale-95"
-            title="Undo / Delete last session"
-          >
-            <span className="text-xl">↩️</span>
-          </button>
-        </div>
-      )}
+      {/* Settings Modal */}
+      <SettingsModal 
+        isOpen={isSettingsOpen} 
+        onClose={() => setIsSettingsOpen(false)} 
+      />
 
       {/* Edit/Add Modals */}
       {(editingActivity || isAdding) && (

@@ -1,4 +1,4 @@
-import { db, Activity, Session } from './db';
+import { db, Activity, Session, Settings } from './db';
 
 export const activityRepo = {
   getAll: async () => {
@@ -47,26 +47,35 @@ export const sessionRepo = {
       await db.sessions.delete(last.id);
     }
   },
+  deleteSince: async (sinceMs: number) => {
+    const sessions = await db.sessions.where('startTime').aboveOrEqual(sinceMs).toArray();
+    await db.sessions.bulkDelete(sessions.map(s => s.id));
+  },
   getByRange: async (startMs: number, endMs: number) => {
-    // Get sessions that overlap with the range
-    // Since we want all sessions within [startMs, endMs], we can query by startTime
-    // or filter. For MVP, getting all and filtering in memory or simple filter is fine 
-    // given low volume. 
-    // Correct query: sessions where startTime >= startMs AND startTime <= endMs
-    // OR sessions started before startMs but ended after startMs (overlapping)
-    // For simplicity:
     return await db.sessions
       .where('startTime')
-      .aboveOrEqual(startMs) // Optimization: get sessions starting after range start
+      .aboveOrEqual(startMs) 
       .toArray();
-      // Wait, sessions started BEFORE range start but ending in range?
-      // MVP: We define session belonging to range if it started in range? 
-      // User says: "Total tracked time... For selected range"
-      // Usually means overlap.
-      // But let's retrieve all sessions around the time and filter in domain for precision.
-      // For now, let's just expose a way to get sessions by time.
   },
   getAllSince: async (sinceMs: number) => {
      return await db.sessions.where('startTime').aboveOrEqual(sinceMs).toArray();
+  }
+};
+
+// Feature A
+const DEFAULT_SETTINGS: Settings = {
+  id: 'config',
+  autoReminder: false,
+  reminderDuration: 60 * 60 * 1000 // 1 hour default
+};
+
+export const settingsRepo = {
+  get: async () => {
+    const settings = await db.settings.get('config');
+    return settings || DEFAULT_SETTINGS;
+  },
+  save: async (settings: Partial<Settings>) => {
+    const current = await settingsRepo.get();
+    await db.settings.put({ ...current, ...settings, id: 'config' });
   }
 };

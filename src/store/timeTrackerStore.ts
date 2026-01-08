@@ -1,6 +1,6 @@
 import { create } from 'zustand';
-import { Activity, Session } from '../storage/db';
-import { activityRepo, sessionRepo } from '../storage/repos';
+import { Activity, Session, Settings } from '../storage/db';
+import { activityRepo, sessionRepo, settingsRepo } from '../storage/repos';
 import { timeEngine } from '../domain/timeEngine';
 import { seedActivities } from '../storage/seed';
 import { v4 as uuidv4 } from 'uuid';
@@ -8,11 +8,13 @@ import { v4 as uuidv4 } from 'uuid';
 interface StatsData {
   totalTime: number;
   activities: { activityId: string; duration: number }[];
+  sessions: Session[];
 }
 
 interface TimeTrackerState {
   activities: Activity[];
   activeSession: Session | null;
+  settings: Settings;
   isLoading: boolean;
   isEditMode: boolean;
   
@@ -22,6 +24,10 @@ interface TimeTrackerState {
   deleteLastSession: () => Promise<void>;
   toggleEditMode: () => void;
   
+  // Settings Actions
+  updateSettings: (settings: Partial<Settings>) => Promise<void>;
+  clearTodayData: () => Promise<void>;
+
   // Edit Actions
   reorderActivities: (activities: Activity[]) => Promise<void>;
   addActivity: (activity: Omit<Activity, 'id' | 'order'>) => Promise<void>;
@@ -33,9 +39,23 @@ interface TimeTrackerState {
   loadStats: (range: { start: Date; end: Date }) => Promise<void>;
 }
 
+const CATEGORY_MAPPING: Record<string, string> = {
+  'Work/Code': 'Output',
+  'Investment': 'Output',
+  'Workout': 'Health',
+  'GF': 'Social',
+  'Housework': 'Life',
+  'Eating': 'Life',
+  'Traffic': 'Life',
+  'Chilling': 'Passive',
+  'Gaming': 'Passive',
+  'Scrolling': 'Passive',
+};
+
 export const useTimeTrackerStore = create<TimeTrackerState>((set, get) => ({
   activities: [],
   activeSession: null,
+  settings: { id: 'config', autoReminder: false, reminderDuration: 60 * 60 * 1000 },
   isLoading: true,
   isEditMode: false,
   statsData: null,
@@ -47,14 +67,31 @@ export const useTimeTrackerStore = create<TimeTrackerState>((set, get) => ({
       await seedActivities();
       
       // Load activities
-      const activities = await activityRepo.getAll();
+      let activities = await activityRepo.getAll();
+      
+      // Migration: Backfill categories
+      const updates = [];
+      for (const activity of activities) {
+        if (!activity.category) {
+          const category = CATEGORY_MAPPING[activity.name] || 'Other';
+          updates.push(activityRepo.update(activity.id, { category }));
+          activity.category = category;
+        }
+      }
+      if (updates.length > 0) {
+        await Promise.all(updates);
+      }
       
       // Load active session
       const activeSession = await sessionRepo.getActive();
+
+      // Load settings
+      const settings = await settingsRepo.get();
       
       set({ 
         activities, 
         activeSession: activeSession || null,
+        settings,
         isLoading: false 
       });
     } catch (error) {
@@ -95,6 +132,27 @@ export const useTimeTrackerStore = create<TimeTrackerState>((set, get) => ({
     set((state) => ({ isEditMode: !state.isEditMode }));
   },
 
+  updateSettings: async (newSettings) => {
+    const { settings } = get();
+    const updated = { ...settings, ...newSettings };
+    
+    set({ settings: updated }); // Optimistic
+    try {
+      await settingsRepo.save(newSettings);
+    } catch (error) {
+      console.error('Failed to save settings:', error);
+    }
+  },
+
+  clearTodayData: async () => {
+    try {
+      await timeEngine.clearTodaySessions();
+      set({ activeSession: null }); // Since clearTodaySessions handles stopping active if needed
+    } catch (error) {
+      console.error('Failed to clear today data:', error);
+    }
+  },
+
   reorderActivities: async (activities: Activity[]) => {
     // Optimistic update
     set({ activities });
@@ -116,7 +174,8 @@ export const useTimeTrackerStore = create<TimeTrackerState>((set, get) => ({
     const newActivity: Activity = {
       ...data,
       id: uuidv4(),
-      order: activities.length + 1
+      order: activities.length + 1,
+      category: data.category || 'Other'
     };
     
     try {

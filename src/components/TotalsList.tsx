@@ -3,15 +3,16 @@
 import { useTimeTrackerStore } from '../store/timeTrackerStore';
 import { formatDuration } from '../utils/format';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts';
+import StatsComparison from './StatsComparison';
 
 interface TotalsListProps {
-  colors: Record<string, string>; // activityId -> color class
-  emojis: Record<string, string>; // activityId -> emoji
-  names: Record<string, string>; // activityId -> name
+  colors: Record<string, string>;
+  emojis: Record<string, string>;
+  names: Record<string, string>;
+  isToday?: boolean; // New prop to optionally show comparison
+  viewMode?: 'activity' | 'category'; // New prop
 }
 
-// Helper to get hex color from tailwind class (simplified map for MVP)
-// Since we store bg-blue-500, we need hex for Recharts.
 const TW_COLORS: Record<string, string> = {
   'bg-blue-500': '#3b82f6',
   'bg-green-500': '#22c55e',
@@ -23,14 +24,26 @@ const TW_COLORS: Record<string, string> = {
   'bg-yellow-500': '#eab308',
   'bg-red-500': '#ef4444',
   'bg-teal-500': '#14b8a6',
+  'bg-cyan-500': '#06b6d4',
+  'bg-lime-500': '#84cc16'
 };
 
-export default function TotalsList({ colors, emojis, names }: TotalsListProps) {
+// Category colors mapping (static for now)
+const CAT_COLORS: Record<string, string> = {
+  'Output': '#3b82f6', // blue
+  'Health': '#22c55e', // green
+  'Social': '#ec4899', // pink
+  'Life': '#eab308',   // yellow
+  'Passive': '#6b7280', // gray
+  'Other': '#9ca3af'
+};
+
+export default function TotalsList({ colors, emojis, names, isToday, viewMode = 'activity' }: TotalsListProps) {
   const { statsData } = useTimeTrackerStore();
 
   if (!statsData) return <div className="text-center text-gray-400 mt-10">Loading stats...</div>;
 
-  const { totalTime, activities } = statsData;
+  const { totalTime, activities, categories } = statsData as any; // categories added in engine
 
   if (totalTime === 0) {
     return (
@@ -41,12 +54,27 @@ export default function TotalsList({ colors, emojis, names }: TotalsListProps) {
     );
   }
 
-  // Prepare chart data
-  const chartData = activities.map(item => ({
-    name: names[item.activityId] || 'Unknown',
-    value: item.duration,
-    color: TW_COLORS[colors[item.activityId]] || '#ccc'
-  })).filter(d => d.value > 0);
+  // Data preparation based on view mode
+  let chartData = [];
+  let listData = [];
+
+  if (viewMode === 'category' && categories) {
+    listData = categories;
+    chartData = categories.map((item: any) => ({
+      name: item.category,
+      value: item.duration,
+      color: CAT_COLORS[item.category] || '#ccc'
+    }));
+  } else {
+    listData = activities;
+    chartData = activities.map((item: any) => ({
+      name: names[item.activityId] || 'Unknown',
+      value: item.duration,
+      color: TW_COLORS[colors[item.activityId]] || '#ccc'
+    }));
+  }
+  
+  chartData = chartData.filter((d: any) => d.value > 0);
 
   return (
     <div className="space-y-6">
@@ -55,6 +83,9 @@ export default function TotalsList({ colors, emojis, names }: TotalsListProps) {
         <div className="text-sm text-gray-500 uppercase tracking-wide">Total Time</div>
         <div className="text-4xl font-bold mt-1 text-gray-900">{formatDuration(totalTime)}</div>
       </div>
+
+      {/* Comparison (Only for Today) */}
+      {isToday && <StatsComparison />}
 
       {/* Chart */}
       <div className="h-48 w-full">
@@ -69,7 +100,7 @@ export default function TotalsList({ colors, emojis, names }: TotalsListProps) {
               paddingAngle={2}
               dataKey="value"
             >
-              {chartData.map((entry, index) => (
+              {chartData.map((entry: any, index: number) => (
                 <Cell key={`cell-${index}`} fill={entry.color} stroke="none" />
               ))}
             </Pie>
@@ -82,8 +113,26 @@ export default function TotalsList({ colors, emojis, names }: TotalsListProps) {
 
       {/* List */}
       <div className="space-y-3">
-        {activities.map((item) => {
+        {listData.map((item: any) => {
           const percent = Math.round((item.duration / totalTime) * 100);
+          
+          if (viewMode === 'category') {
+             return (
+              <div key={item.category} className="flex items-center justify-between bg-white p-3 rounded-lg shadow-sm border border-gray-100">
+                <div className="flex items-center gap-3">
+                  <div className="w-4 h-4 rounded-full" style={{ backgroundColor: CAT_COLORS[item.category] || '#ccc' }} />
+                  <div>
+                    <div className="font-medium">{item.category}</div>
+                    <div className="text-xs text-gray-400">{percent}%</div>
+                  </div>
+                </div>
+                <div className="font-mono font-medium text-gray-700">
+                  {formatDuration(item.duration)}
+                </div>
+              </div>
+             );
+          }
+
           return (
             <div key={item.activityId} className="flex items-center justify-between bg-white p-3 rounded-lg shadow-sm border border-gray-100">
               <div className="flex items-center gap-3">

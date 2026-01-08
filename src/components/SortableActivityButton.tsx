@@ -33,7 +33,7 @@ export function SortableActivityButton({
     transform: CSS.Transform.toString(transform),
     transition,
     opacity: isDragging ? 0.5 : 1,
-    touchAction: 'none' // Prevent scrolling while dragging
+    touchAction: isEditMode ? 'none' : 'auto' // Only block scrolling in edit mode
   };
 
   return (
